@@ -55,8 +55,7 @@ with st.sidebar:
         [
             "Overview",
             "Rates for Given Inputs",
-            "Rates with Multiple Prevalences",
-            "Inverse Calculator: from False Discovery Rate to Prevalence"
+            "Rates with Multiple Prevalences"
         ],
         index=0, # Default to "Overview"
     )
@@ -261,70 +260,3 @@ elif selected_section == "Rates with Multiple Prevalences":
     # Create and display the DataFrame
     df = pd.DataFrame(results)
     st.table(df)
-
-
-elif selected_section == "Inverse Calculator: from False Discovery Rate to Prevalence":
-    st.header("Inverse Calculator: Find Required Prevalence")
-    st.markdown("Calculate the required **Prevalence** to achieve a target False Discovery Rate (FDR) based on the current **Sensitivity** and **Specificity** from the sidebar.")
-
-    # --- Use inputs from the sidebar ---
-    Se_calc = sensitivity # Already calculated from sidebar input
-    Sp_calc = specificity # Already calculated from sidebar input
-    
-    st.subheader("Current Test Characteristics (from Sidebar):")
-    st.markdown(f"""
-    * **Sensitivity:** **{sensitivity_percent_input:.2f}%**
-    * **Specificity:** **{specificity_percent_input:.2f}%**
-    """)
-    
-    # --- Single Input for the Target FDR ---
-    rate_calc = st.number_input(
-        "Target False Discovery Rate (FDR) (%)",
-        min_value=0.0, max_value=100.0, value=5.0, step=1.0, format="%.2f",
-        key="FDR_calc_input",
-        help="Enter the maximum acceptable False Discovery Rate you want to achieve."
-    ) / 100.0
-    
-    # --- Calculation Logic ---
-
-    calculated_result = None # Stored as a proportion (0 to 1)
-    
-    # Target Metric (Prevalence P) and Known Rate (FDR R) are fixed for this section
-    R = rate_calc
-    Se = Se_calc
-    Sp = Sp_calc
-
-    # Formula: P = [(1 - Sp) * (1 - FDR)] / [(FDR * Se) - (FDR * (1 - Sp)) + (1 - Sp)]
-
-    term_one_minus_Sp = (1 - Sp)
-
-    numerator = term_one_minus_Sp * (1 - R)
-    denominator = (R * Se) - (R * term_one_minus_Sp) + term_one_minus_Sp
-
-    if denominator == 0:
-        if R == 0 and term_one_minus_Sp == 0:
-            st.info("To achieve 0% FDR when Specificity is 100%, Prevalence can be anything (as long as it's not 0).")
-            calculated_result = None
-        else:
-            st.error("Invalid input combination: Denominator is zero. Check if your Specificity/Sensitivity are realistic for your target FDR.")
-            calculated_result = None
-    elif numerator == 0:
-        calculated_result = 0.0
-    else:
-        P = numerator / denominator
-        calculated_result = P
-
-    # --- Display Results ---
-    if calculated_result is not None:
-        calculated_percent = calculated_result * 100
-
-        if calculated_percent < 0 or calculated_percent > 100:
-            error_message = f"The calculated Prevalence required is **{calculated_percent:.2f}%**. This is **impossible** (must be between 0% and 100%). Adjust your target FDR or the test characteristics."
-            st.error(error_message)
-        elif calculated_result == 0.0:
-            # Using LaTeX for the infinity symbol
-            st.success(f"Required **Prevalence (P)** to achieve {rate_calc*100:.2f}% FDR: **0.00%** (1 in $\\infty$)")
-        else:
-            one_in_x = 1 / calculated_result
-            st.success(f"Required **Prevalence (P)** to achieve {rate_calc*100:.2f}% FDR: **{calculated_percent:.2f}%** (1 in **{one_in_x:.2f}**)")
-    st.divider()
