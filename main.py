@@ -155,6 +155,16 @@ if selected_section == "Overview":
     """)
 
 elif selected_section == "Rates for Given Inputs":
+    
+    # Display current Sensitivity and Specificity
+    st.markdown(f"""
+    The following rates are calculated using the **current test characteristics**:
+    * **Prevalence:** **{prevalence_percent_input:.2f}%**
+    * **Sensitivity:** **{sensitivity_percent_input:.2f}%**
+    * **Specificity:** **{specificity_percent_input:.2f}%**
+    """)
+    st.markdown("---")
+    
     st.header("Predictive Rate Results")
 
     if not np.isnan(fdr):
