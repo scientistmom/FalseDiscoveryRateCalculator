@@ -165,7 +165,7 @@ elif selected_section == "Rates for Given Inputs":
     """)
     st.markdown("---")
     
-    st.header("Predictive Rate Results")
+    st.header("Results")
 
     if not np.isnan(fdr):
 
@@ -216,8 +216,6 @@ elif selected_section == "Rates for Given Inputs":
 
 
 elif selected_section == "Rates with Multiple Prevalences":
-    st.header("Comparative Analysis by Prevalence")
-
     # Display current Sensitivity and Specificity
     st.markdown(f"""
     The following rates are calculated using the **current test characteristics**:
@@ -225,7 +223,9 @@ elif selected_section == "Rates with Multiple Prevalences":
     * **Specificity:** **{specificity_percent_input:.2f}%**
     """)
     st.markdown("---") # Visual separator between inputs and table
-
+    
+    st.header("Results")
+    
     # Define the target prevalences in proportional and human-readable form
     prevalence_data = [
         {"Label": "1 in 2 (50%)", "P": 0.5},
