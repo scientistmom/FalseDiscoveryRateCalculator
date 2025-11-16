@@ -5,11 +5,10 @@ import numpy as np
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="MomScience Calculator", layout="wide") 
 
-
 # --- 2. THE TOP CONTENT ---
 
 st.title("MomScience: False Discovery Rate Calculator")
-    
+   
 # Descriptive text
 st.write("""
 This tool calculates the **False Discovery Rate (FDR)** along with **False Omission Rate (FOR)** using Bayes' Theorem.
@@ -25,10 +24,9 @@ with st.sidebar:
     # --- Input Parameters ---
     st.header("⚙️ Input Parameters (%)")
 
-    # Single Percentage Input for Prevalence
     prevalence_percent_input = st.number_input(
         "Prevalence (%)",
-        min_value=0.01, max_value=100.0, value=10.0, step=1.0, format="%.2f",
+        min_value=0.0, max_value=100.0, value=10.0, step=1.0, format="%.2f",
         key="side_prevalence",
         help="e.g., Enter 10.0 for 10% prevalence meaning that 10% of population is affected by the condition."
     )
@@ -75,8 +73,8 @@ specificity = specificity_percent_input / 100.0
 prevalence_display = f"{prevalence_percent_input:.2f}%" # Display format is just the percentage
 
 # Ensure inputs are valid before proceeding
-if not (0.0001 <= prevalence <= 1.0 and 0 <= sensitivity <= 1 and 0 <= specificity <= 1):
-    st.error("Please ensure all input percentages are valid (0.01-100).")
+if not (0.0 <= prevalence <= 1.0 and 0 <= sensitivity <= 1 and 0 <= specificity <= 1):
+    st.error("Please ensure all input percentages are valid (0-100).")
     st.stop() 
 
 # 1. Calculate probabilities (fractions of the total population)
@@ -89,13 +87,25 @@ prob_true_negative = specificity * (1 - prevalence)
 prob_positive_test = prob_true_positive + prob_false_positive
 prob_negative_test = prob_true_negative + prob_false_negative
 
-# Calculate FDR and FOR (needed for all sections)
-if prob_positive_test > 0 and prob_negative_test > 0:
-    fdr = prob_false_positive / prob_positive_test
-    FOR = prob_false_negative / prob_negative_test
+# Define non-computable string constants
+FDR_NOT_COMPUTABLE_STR = "FDR is not computable"
+FOR_NOT_COMPUTABLE_STR = "FOR is not computable"
+
+# Calculate FDR and FOR, handling edge cases where the denominator is zero
+# FDR is not computable if P(Test Positive) is 0 (i.e., TP + FP = 0)
+if prob_positive_test == 0:
+    fdr_result = FDR_NOT_COMPUTABLE_STR
 else:
-    fdr = np.nan
-    FOR = np.nan
+    # fdr_result will be a float percentage
+    fdr_result = prob_false_positive / prob_positive_test
+
+# FOR is not computable if P(Test Negative) is 0 (i.e., FN + TN = 0)
+if prob_negative_test == 0:
+    FOR_result = FOR_NOT_COMPUTABLE_STR
+else:
+    # FOR_result will be a float percentage
+    FOR_result = prob_false_negative / prob_negative_test
+
 
 # ==============================================================================
 # --- 4. MAIN CONTENT SECTIONS (Right Side Display) ---
@@ -111,9 +121,12 @@ if selected_section == "Overview":
     # Display percentages above the bar
     text_col_left_1, text_col_right_1 = st.columns([1, 4])
     with text_col_left_1:
-        st.markdown(f'<p style="color:#F44336; font-weight:bold; margin-bottom: 0px;">{prevalence_percent_calc:.2f}%</p>', unsafe_allow_html=True)
+        # Check if prevalence is near zero to prevent text overlap
+        if prevalence_percent_calc > 1.0:
+            st.markdown(f'<p style="color:#F44336; font-weight:bold; margin-bottom: 0px;">{prevalence_percent_calc:.2f}%</p>', unsafe_allow_html=True)
     with text_col_right_1:
-        st.markdown(f'<p style="color:#2196F3; font-weight:bold; text-align: right; margin-bottom: 0px;">{non_prevalence_percent:.2f}%</p>', unsafe_allow_html=True)
+        if non_prevalence_percent > 1.0:
+            st.markdown(f'<p style="color:#2196F3; font-weight:bold; text-align: right; margin-bottom: 0px;">{non_prevalence_percent:.2f}%</p>', unsafe_allow_html=True)
 
     # HTML for the segmented bar (solid red/blue) - HEIGHT REDUCED TO 50px
     html_code_1 = f"""
@@ -167,52 +180,70 @@ elif selected_section == "Rates for Given Inputs":
     
     st.header("Results")
 
-    if not np.isnan(fdr):
+    # --- Pop-up Help Descriptions (defined here as they are only needed in this section) ---
+    fdr_help_desc = """
+    **False Discovery Rate (FDR)**: The risk that a **Positive** test result is **wrong**.
+    It is the probability that a person who tested positive does *not* actually have the condition.
 
-        # --- Pop-up Help Descriptions ---
-        fdr_help_desc = """
-        **False Discovery Rate (FDR)**: The risk that a **Positive** test result is **wrong**.
-        It is the probability that a person who tested positive does *not* actually have the condition.
+    Formula: P(No Condition | Test Positive) = FP / (TP + FP)
+    """
 
-        Formula: P(No Condition | Test Positive) = FP / (TP + FP)
-        """
+    for_help_desc = """
+    **False Omission Rate (FOR)**: The risk that a **Negative** test result is **wrong**.
+    It is the probability that a person who tested negative *does* actually have the condition.
 
-        for_help_desc = """
-        **False Omission Rate (FOR)**: The risk that a **Negative** test result is **wrong**.
-        It is the probability that a person who tested negative *does* actually have the condition.
+    Formula: P(Condition | Test Negative) = FN / (FN + TN)
+    """
 
-        Formula: P(Condition | Test Negative) = FN / (FN + TN)
-        """
+    col_fdr, col_for = st.columns(2)
+    
+    is_fdr_computable = isinstance(fdr_result, float)
+    is_for_computable = isinstance(FOR_result, float)
 
-        col_fdr, col_for = st.columns(2)
-
-        with col_fdr:
+    with col_fdr:
+        if is_fdr_computable:
             st.metric(
                 label="False Discovery Rate (FDR)",
-                value=f"{fdr * 100:.2f} %",
+                value=f"{fdr_result * 100:.2f} %",
                 help=fdr_help_desc # Pop-up explanation
             )
-
-        with col_for:
+        else:
             st.metric(
-                label="False Omission Rate (FOR)",
-                value=f"{FOR * 100:.2f} %",
-                help=for_help_desc # Pop-up explanation
+                label="False Discovery Rate (FDR)",
+                value=fdr_result, # The string "FDR is not computable"
+                help=fdr_help_desc
             )
 
-        # Kept the summary interpretation below the metrics
+    with col_for:
+        if is_for_computable:
+            st.metric(
+                label="False Omission Rate (FOR)",
+                value=f"{FOR_result * 100:.2f} %",
+                help=for_help_desc # Pop-up explanation
+            )
+        else:
+            st.metric(
+                label="False Omission Rate (FOR)",
+                value=FOR_result, # The string "FOR is not computable"
+                help=for_help_desc
+            )
+            
+    # Conditional Interpretation Display
+    if is_fdr_computable:
         st.success(f"""
         **FDR Interpretation:** If a person receives a **positive test** result, there is a
-        **{fdr * 100:.2f}% chance** that they **do not actually have the condition** (False Positive).
+        **{fdr_result * 100:.2f}% chance** that they **do not actually have the condition** (False Positive).
         """)
+    else:
+        st.warning(f"**FDR Interpretation:** {fdr_result}")
 
+    if is_for_computable:
         st.info(f"""
         **FOR Interpretation:** If a person receives a **negative test** result, there is a
-        **{FOR * 100:.2f}% chance** that they **do have the condition** (False Negative).
+        **{FOR_result * 100:.2f}% chance** that they **do have the condition** (False Negative).
         """)
-
     else:
-        st.warning("Cannot calculate FDR/FOR: One or both probabilities of a test result (positive/negative) are zero based on your inputs.")
+        st.info(f"**FOR Interpretation:** {FOR_result}")
 
 
 elif selected_section == "Rates with Multiple Prevalences":
@@ -248,23 +279,34 @@ elif selected_section == "Rates with Multiple Prevalences":
         P_Test_Positive = TP + FP
         P_Test_Negative = FN + TN
 
+        FDR_NOT_COMPUTABLE_STR = "FDR is not computable"
+        FOR_NOT_COMPUTABLE_STR = "FOR is not computable"
+        
         # FDR (False Discovery Rate)
-        FDR_val = FP / P_Test_Positive if P_Test_Positive > 0 else 0
+        if P_Test_Positive == 0:
+            FDR_display = FDR_NOT_COMPUTABLE_STR
+        else:
+            FDR_val = FP / P_Test_Positive
+            FDR_display = f"{FDR_val * 100:.2f}%"
 
         # FOR (False Omission Rate)
-        FOR_val = FN / P_Test_Negative if P_Test_Negative > 0 else 0
+        if P_Test_Negative == 0:
+            FOR_display = FOR_NOT_COMPUTABLE_STR
+        else:
+            FOR_val = FN / P_Test_Negative
+            FOR_display = f"{FOR_val * 100:.2f}%"
 
-        return FDR_val, FOR_val
+        return FDR_display, FOR_display
 
     # Populate results list
     for item in prevalence_data:
         P = item["P"]
-        FDR_val, FOR_val = calculate_metrics_for_table(P, sensitivity, specificity)
+        FDR_display, FOR_display = calculate_metrics_for_table(P, sensitivity, specificity)
 
         results.append({
             "Prevalence (P)": item["Label"],
-            "FDR (False Discovery Rate)": f"{FDR_val * 100:.2f}%",
-            "FOR (False Omission Rate)": f"{FOR_val * 100:.2f}%"
+            "FDR (False Discovery Rate)": FDR_display,
+            "FOR (False Omission Rate)": FOR_display
         })
 
     # Create and display the DataFrame
